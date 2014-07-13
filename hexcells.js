@@ -1,5 +1,5 @@
-var STATE_OUTSIDE = -1;
-var STATE_EMPTY = 0;
+var STATE_OUTSIDE = -10;
+var STATE_EMPTY = -1;
 
 var EAST = 1;
 var WEST = 2;
@@ -10,8 +10,10 @@ var SOUTHEAST = 6;
 
 var Board = function() {
     var elements = new Array();
-    for (row=0; row<7; row++) {
+    var spare = new Array();
+    for (var row=0; row<7; row++) {
         elements[row] = new Array();
+        spare[row] = new Array();
         for (col = 0; col < 7; col ++) {
             var state = STATE_EMPTY;
             if ((row + col) < 3) {
@@ -21,13 +23,17 @@ var Board = function() {
                 state = STATE_OUTSIDE;
             }
             elements[row][col] = state;
+            spare[row][col] = state;
         }
     }
 
     function forEach(todo) {
-        for (row=0; row<7; row++) {
-            for (col = 0; col < 7; col ++) {
+        for (var row=0; row<7; row++) {
+            for (var col = 0; col < 7; col++) {
                 var value = elements[row][col];
+                if (!value) {
+                    throw new Error("value is 0 at ("+col+","+row+")");
+                }
                 if (value != STATE_OUTSIDE) {
                     todo(col, row, elements[row][col]);
                 }
@@ -39,10 +45,10 @@ var Board = function() {
         elements[y][x] = state;
     }
 
-    function gapsBefore(x,y) {
+    function gapsBelow(x,y) {
         var tally = 0;
-        for (col=0; col<x; col++) {
-            if (elements[y][col] == STATE_EMPTY) {
+        for (row=y+1; row<7; row++) {
+            if (elements[row][x] == STATE_EMPTY) {
                 tally = tally + 1;
             }
         }
@@ -50,26 +56,52 @@ var Board = function() {
         return tally;
     }
 
-    function moveCellsLeft() {
-        for (row=0; row<7; row++) {
-            var shift = 0;
-            for (col = 0; col < 7; col ++) {
+    function moveCellsDown() {
+       for (col = 0; col < 7; col ++) {
+           var shift = 0;
+           for (row=6; row>=0; row--) {
+               var value = elements[row][col];
+               if (value != STATE_OUTSIDE) {
+                   if (value == STATE_EMPTY) {
+                       shift++;
+                   } else if (shift>0) {
+                        elements[row+shift][col] = elements[row][col];
+                        elements[row][col] = STATE_EMPTY;
+                   }                        
+               }
+           }
+       }
+    }
+
+    function rotateCellsAnticlockwise() {
+        var shift = 0;
+        for (var col = 0; col < 7; col ++) {
+            for (var row=0; row <7; row++) {
                 var value = elements[row][col];
                 if (value != STATE_OUTSIDE) {
-                    if (value == STATE_EMPTY) {
-                        shift++;
-                    } else {
-                    }                        
+                    var xr = col -3;
+                    var yr = row -3;
+                    var xprev = -yr;
+                    var yprev = xr + yr;
+                    console.log("("+xprev+","+yprev+") -> ("+xr+","+yr+")");
+                    spare[row][col] = elements[yprev+3][xprev+3];
+                }
+                else {
+                    spare[row][col] = STATE_OUTSIDE;
                 }
             }
         }
+        var temp = spare;
+        elements = spare;
+        spare = temp;
     }
 
     return {
         "forEach": forEach,
         "set": set,
-        "gapsBefore": gapsBefore,
-        "moveCellsLeft": moveCellsLeft
+        "gapsBelow": gapsBelow,
+        "moveCellsDown": moveCellsDown,
+        "rotateCellsAnticlockwise": rotateCellsAnticlockwise
     }; 
 }
 
@@ -103,48 +135,86 @@ var Game = function() {
         context.fill();
     }
 
+    var radius = 20;
+    var gap = 26;
+    var skew = Math.sqrt(3) /2;
+
+    function getCenter(x, y) {
+        return {
+            x: x*gap*skew*2 + 100,
+            y: (y+x/2)*gap*2 + 50
+        };
+    }
+
+    var rotationCenter = getCenter(3,3);
+
+    function getRotatedCenter(x, y,sina, cosa) {
+        var orig = getCenter(x,y);
+        var x2 = orig.x - rotationCenter.x;
+        var y2 = orig.y - rotationCenter.y;
+        var xr = x2 * cosa - y2 * sina;
+        var yr = x2 * sina + y2 * cosa;
+        return {
+            x: rotationCenter.x + xr,
+            y: rotationCenter.y + yr,
+        };
+    }
 
     function drawBoard() {
         var radius = 20;
-        var gap = 26;
-        var skew = Math.sqrt(3) /2;
         bufCtx.fillStyle = '#fff';
-        bufCtx.fillRect(0,0, bufCtx.width, bufCtx.height);
+        bufCtx.fillRect(0,0, buf.width, buf.height);
         board.forEach(function(x,y,state) {
-            var xCenter = (x+y/2)*gap*2 +100;
-            var yCenter = y*gap*skew*2 + 50;
-            drawCircle(bufCtx, xCenter, yCenter, radius, '#fff', 20,'#000');
+            var center = getCenter(x,y);
+            drawCircle(bufCtx, center.x, center.y, radius, '#fff', 20,'#000');
         });
         board.forEach(function(x,y,state) {
             if (state != STATE_EMPTY) {
-                var yCenter = y*gap*skew*2 + 50;
-                var xCenter = (x+y/2)*gap*2 +100;
+                var center = getCenter(x,y);
                 var color = "#" + (15*256 + state * 2).toString(16);
-                drawCircle(bufCtx, xCenter, yCenter, radius -2, color);
+                drawCircle(bufCtx, center.x, center.y, radius -2, color);
             }
         });
     }
 
-    function drawBoardMovingLeft(animationProgress = 0) {
-        var radius = 20;
-        var gap = 26;
-        var skew = Math.sqrt(3) /2;
+    function drawBoardMovingDown(animationProgress = 0) {
+        console.log("drawboardmoving down "+animationProgress);
         bufCtx.fillStyle = '#fff';
-        bufCtx.fillRect(0,0, bufCtx.width, bufCtx.height);
+        bufCtx.fillRect(0,0, buf.width, buf.height);
         board.forEach(function(x,y,state) {
-            var xCenter = (x+y/2)*gap*2 +100;
-            var yCenter = y*gap*skew*2 + 50;
-            drawCircle(bufCtx, xCenter, yCenter, radius, '#fff', 20,'#000');
+            var center = getCenter(x,y);
+            drawCircle(bufCtx, center.x, center.y, radius, '#fff', 20,'#000');
         });
         board.forEach(function(x,y,state) {
             if (state != STATE_EMPTY) {
-                var yCenter = y*gap*skew*2 + 50;
-                var xCenter = (x+y/2)*gap*2 +100;
-                var newPos = (x-board.gapsBefore(x,y));
-                var distance = (x-newPos) * gap * 2 * animationProgress;
+                var center = getCenter(x,y);
+                var newPos = (y+board.gapsBelow(x,y));
+                var distance = (newPos-y) * gap * 2 * animationProgress;
                 var color = "#" + (15*256 + state * 2).toString(16);
-                var xdelta = -distance;
-                drawCircle(bufCtx, xCenter + xdelta, yCenter, radius -2, color);
+                var ydelta = distance;
+                drawCircle(bufCtx, center.x, center.y + ydelta, radius -2, color);
+            }
+        });
+        console.log(animationProgress);
+    }
+
+    function drawBoardRotating(animationProgress = 0) {
+        var angle = -(Math.PI /3) * animationProgress;
+        var sina = Math.sin(angle);
+        var cosa = Math.cos(angle);
+         
+        console.log("drawboardmoving down "+animationProgress);
+        bufCtx.fillStyle = '#fff';
+        bufCtx.fillRect(0,0, buf.width, buf.height);
+        board.forEach(function(x,y,state) {
+            var center = getRotatedCenter(x,y,sina,cosa);
+            drawCircle(bufCtx, center.x, center.y, radius, '#fff', 20,'#000');
+        });
+        board.forEach(function(x,y,state) {
+            if (state != STATE_EMPTY) {
+                var center = getRotatedCenter(x,y,sina,cosa);
+                var color = "#" + (15*256 + state * 2).toString(16);
+                drawCircle(bufCtx, center.x, center.y, radius -2, color);
             }
         });
         console.log(animationProgress);
@@ -166,6 +236,7 @@ var Game = function() {
         // update
         var time = (new Date()).getTime() - startTime;
         var completion = time * 1.0 / duration;
+        console.log("animate completion = "+completion);
         if (completion > 1.0) {
             completion = 1.0;
         }
@@ -184,16 +255,19 @@ var Game = function() {
     function keyEvent(ev) {
         console.log("keycode = "+ev.keyCode);
         if (ev.keyCode == 37) { // left
-            animate((new Date()).getTime(), 100, drawBoardMovingLeft, board.moveCellsLeft);
             return false;
         }
         if (ev.keyCode == 39) { // right
-            //animate((new Date()).getTime(), 100, drawBoardMovingRight, moveCellsRight);
+            animate((new Date()).getTime(), 100, drawBoardRotating, board.rotateCellsAnticlockwise);
+            ev.returnValue= false;
+            ev.preventDefault = true;
             return false;
         }
         if (ev.keyCode == 40) { // down
-            animate((new Date()).getTime(), 100);
-            return false;
+            console.log("pressed down key");
+            animate((new Date()).getTime(), 100, drawBoardMovingDown, board.moveCellsDown);
+            ev.returnValue= false;
+            ev.preventDefault = true;
         }
         return true;
     }
