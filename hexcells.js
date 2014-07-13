@@ -74,7 +74,60 @@ var Board = function() {
     }
 
     function rotateCellsAnticlockwise() {
-        var shift = 0;
+        // C
+        var start = elements[6][3];
+        elements[6][3] = elements[6][0];
+        elements[6][0] = elements[3][0];
+        elements[3][0] = elements[0][3];
+        elements[0][3] = elements[0][6];
+        elements[0][6] = elements[3][6];
+        elements[3][6] = start;
+
+        // D
+        start = elements[6][2];
+        elements[6][2] = elements[5][0];
+        elements[5][0] = elements[2][1];
+        elements[2][1] = elements[0][4];
+        elements[0][4] = elements[1][6];
+        elements[1][6] = elements[4][5];
+        elements[4][5] = start;
+
+        // E
+        start = elements[6][1];
+        elements[6][1] = elements[4][0];
+        elements[4][0] = elements[1][2];
+        elements[1][2] = elements[0][5];
+        elements[0][5] = elements[2][6];
+        elements[2][6] = elements[5][4];
+        elements[5][4] = start;
+
+        // B
+        start = elements[5][3];
+        elements[5][3] = elements[5][1];
+        elements[5][1] = elements[3][1];
+        elements[3][1] = elements[1][3];
+        elements[1][3] = elements[1][5];
+        elements[1][5] = elements[3][5];
+        elements[3][5] = start;
+
+        // A
+        start = elements[4][3];
+        elements[4][3] = elements[4][2];
+        elements[4][2] = elements[3][2];
+        elements[3][2] = elements[2][3];
+        elements[2][3] = elements[2][4];
+        elements[2][4] = elements[3][4];
+        elements[3][4] = start;
+
+        // F
+        var start = elements[5][2];
+        elements[5][2] = elements[4][1];
+        elements[4][1] = elements[2][2];
+        elements[2][2] = elements[1][4];
+        elements[1][4] = elements[2][5];
+        elements[2][5] = elements[4][4];
+        elements[4][4] = start;
+        /*
         for (var col = 0; col < 7; col ++) {
             for (var row=0; row <7; row++) {
                 var value = elements[row][col];
@@ -94,6 +147,7 @@ var Board = function() {
         var temp = spare;
         elements = spare;
         spare = temp;
+        */
     }
 
     return {
