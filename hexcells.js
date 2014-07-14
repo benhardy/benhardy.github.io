@@ -47,30 +47,73 @@ var Board = function() {
 
     function gapsBelow(x,y) {
         var tally = 0;
-        for (row=y+1; row<7; row++) {
+        var collapsible = false;
+        var topPos = 6;
+        for (row=6; row>y; row--) {
             if (elements[row][x] == STATE_EMPTY) {
                 tally = tally + 1;
+            } else {
+                if (topPos>row && elements[row][x]==elements[topPos][x]) 
+                    tally = tally + 1;
+                else
+                    topPos--;
             }
         }
         console.log("tally("+x+","+y+")="+tally);
         return tally;
     }
 
+   function getRandomInt(uptil) {
+       return Math.floor(Math.random() * uptil);
+   }
+
     function moveCellsDown() {
+       var free = new Array();
+       var taken = new Array();
+       var freetotal = 0;
        for (col = 0; col < 7; col ++) {
            var shift = 0;
+           free[col]=0;
+           taken[col]=0;
            for (row=6; row>=0; row--) {
                var value = elements[row][col];
                if (value != STATE_OUTSIDE) {
                    if (value == STATE_EMPTY) {
                        shift++;
+                       free[col]++;
                    } else if (shift>0) {
-                        elements[row+shift][col] = elements[row][col];
+                        var toppos = row + shift + 1;
+                        console.log("checking toppos "+toppos+ " on column "+col +" row="+row+" shift="+shift);
+                        if (toppos < 7 && elements[row+shift+1][col] == value) { // if what's underneath is the same, collapse 'em
+                            console.log("collapsing");
+                            shift++;
+                            elements[row+shift][col] = value + value;
+                            free[col]++;
+                        } else {
+                            console.log("not collapsing");
+                            elements[row+shift][col] = elements[row][col];
+                            taken[col]++;
+                        }
                         elements[row][col] = STATE_EMPTY;
                    }                        
                }
            }
+           freetotal+=free[col];
+           console.log("free rows in column "+col+" = "+free[col]);
        }
+       var selection = getRandomInt(freetotal);
+       var col = 0;
+       while(col<7) {
+           if (selection < free[col])
+                break;
+           selection-= free[col++];
+       }
+       var row = getRandomInt(free[col]);
+       if (col<3)
+            row += (3-col);
+       var newvalue = 1 << getRandomInt(3);
+       elements[row][col] = newvalue;
+       console.log("adding new element at ("+row+","+col+")="+newvalue);
     }
 
     function rotateCellsAnticlockwise() {
@@ -319,7 +362,10 @@ var Game = function() {
         }
         if (ev.keyCode == 40) { // down
             console.log("pressed down key");
-            animate((new Date()).getTime(), 100, drawBoardMovingDown, board.moveCellsDown);
+            animate((new Date()).getTime(), 100, drawBoardMovingDown, function() {
+                board.moveCellsDown();
+                drawBoard();
+            });
             ev.returnValue= false;
             ev.preventDefault = true;
         }
