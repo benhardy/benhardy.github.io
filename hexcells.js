@@ -1,14 +1,7 @@
 var STATE_OUTSIDE = -10;
 var STATE_EMPTY = -1;
 
-var EAST = 1;
-var WEST = 2;
-var NORTHWEST = 3;
-var NORTHEAST = 4;
-var SOUTHWEST = 5;
-var SOUTHEAST = 6;
-
-var GRID_SIZE = 7;
+var GRID_SIZE = 5; // 7 works too.
 var HALFWAY = Math.floor(GRID_SIZE/2);
 
 var Board = function() {
@@ -42,6 +35,9 @@ var Board = function() {
     var dropActions = make2DArray(GRID_SIZE, ACTION_STAY);
     var dropTargets = make2DArray(GRID_SIZE, 0);
     var dropTops = new Array();
+    for (col=0; col <GRID_SIZE; col++) {
+        dropTops[col]=bottomActiveRow(col)+1;
+    }
 
     function forEach(todo) {
         for (var row=0; row<GRID_SIZE; row++) {
@@ -171,9 +167,7 @@ var Board = function() {
                 break;
            selection-= free[col++];
         }
-        var row = getRandomInt(free[col]);
-        if (col<3)
-            row += (3-col);
+        var row = getRandomInt(free[col]) + topActiveRow(col);
         var newvalue = 1 + getRandomInt(7);
         elements[row][col] = newvalue;
         return [col, row];
@@ -273,7 +267,7 @@ var Game = function() {
         };
     }
 
-    var rotationCenter = getCenter(3,3);
+    var rotationCenter = getCenter(HALFWAY,HALFWAY);
 
     function getRotatedCenter(x, y,sina, cosa) {
         var orig = getCenter(x,y);
@@ -343,7 +337,7 @@ var Game = function() {
         var sina = Math.sin(angle);
         var cosa = Math.cos(angle);
          
-        console.log("drawboardmoving down "+animationProgress);
+        //console.log("drawboardmoving down "+animationProgress);
         bufCtx.fillStyle = '#fff';
         bufCtx.fillRect(0,0, buf.width, buf.height);
         board.forEach(function(x,y,state) {
@@ -356,18 +350,15 @@ var Game = function() {
                 drawCellAt(center.x, center.y, state);
             }
         });
-        console.log(animationProgress);
+        //console.log(animationProgress);
     }
 
     function demo() {
-        board.set(4,2, 1);
-        board.set(2,4, 2);
-        board.set(6,3, 3);
-        board.set(5,3, 4);
-        board.set(4,3, 5);
-        board.set(2,3, 6);
-        drawBoard();
+        for (var t=0; t<GRID_SIZE; t++) {
+            board.addRandomCell();
+        }
         document.onkeyup = keyEvent;
+        drawBoard();
         canvasCtx.drawImage(buf, 0, 0);
     }
 
@@ -392,7 +383,7 @@ var Game = function() {
     }
 
     function keyEvent(ev) {
-        console.log("keycode = "+ev.keyCode);
+        //console.log("keycode = "+ev.keyCode);
         if (ev.keyCode == 37) { // left
             var drawer = function(pos) { drawBoardRotating(1, pos); }
             animate((new Date()).getTime(), 100, drawer, board.rotateCellsClockwise);
@@ -408,9 +399,7 @@ var Game = function() {
             return false;
         }
         if (ev.keyCode == 40) { // down
-            console.log("pressed down key");
             var count = board.createDropPlan();
-            console.log("count="+count);
             if (count > 0) {
                 //console.log("moving down");
                 animate((new Date()).getTime(), 100, drawBoardMovingDown, function() {
