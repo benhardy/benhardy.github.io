@@ -4,7 +4,26 @@ var STATE_EMPTY = -1;
 var GRID_SIZE = 5; // 7 works too.
 var HALFWAY = Math.floor(GRID_SIZE/2);
 
+// contains most game logic, not really concerned with presentation
 var Board = function() {
+    var ACTION_NONE = 0;
+    var ACTION_STAY = 1;
+    var ACTION_DROP = 2;
+    var ACTION_SQUISH = 3;
+    var dropActions = make2DArray(GRID_SIZE, ACTION_STAY);
+    var dropTargets = make2DArray(GRID_SIZE, 0);
+    var dropTops = new Array();
+    var elements = make2DArray(GRID_SIZE, function(row, col) {
+        var diagonal = row + col;
+        return (diagonal < HALFWAY || diagonal >= (GRID_SIZE+HALFWAY))
+            ? STATE_OUTSIDE : STATE_EMPTY;
+ 
+    });
+
+    for (col=0; col <GRID_SIZE; col++) {
+        dropTops[col]=bottomActiveRow(col);
+    }
+
 
     function make2DArray(size, populatorFunction) {
         if (!(populatorFunction instanceof Function)) {
@@ -19,24 +38,6 @@ var Board = function() {
             }
         }
         return elements;
-    }
-
-    var elements = make2DArray(GRID_SIZE, function(row, col) {
-        var diagonal = row + col;
-        return (diagonal < HALFWAY || diagonal >= (GRID_SIZE+HALFWAY))
-            ? STATE_OUTSIDE : STATE_EMPTY;
- 
-    });
-
-    var ACTION_NONE = 0;
-    var ACTION_STAY = 1;
-    var ACTION_DROP = 2;
-    var ACTION_SQUISH = 3;
-    var dropActions = make2DArray(GRID_SIZE, ACTION_STAY);
-    var dropTargets = make2DArray(GRID_SIZE, 0);
-    var dropTops = new Array();
-    for (col=0; col <GRID_SIZE; col++) {
-        dropTops[col]=bottomActiveRow(col);
     }
 
     function forEach(todo) {
@@ -65,15 +66,6 @@ var Board = function() {
         return Math.floor(Math.random() * uptil);
     }
 
-    function createDropPlan()
-    {
-        var moves = 0;
-        for (var col = 0; col < GRID_SIZE; col++) {
-            moves += processColumn(col);
-        }
-        return moves;
-    }
-
     function bottomActiveRow(col)
     {
         return (col > HALFWAY) ? (GRID_SIZE - col+ 2) : (GRID_SIZE - 1);
@@ -84,7 +76,15 @@ var Board = function() {
         return (col < HALFWAY) ? (HALFWAY - col) : 0;
     }
 
-    function processColumn(col)
+    function createDropPlan() {
+        var moves = 0;
+        for (var col = 0; col < GRID_SIZE; col++) {
+            moves += dropPlanColumnProcess(col);
+        }
+        return moves;
+    }
+
+    function dropPlanColumnProcess(col)
     {
         var topActive = topActiveRow(col);
         var bottom = bottomActiveRow(col);
@@ -223,12 +223,16 @@ var Board = function() {
     }; 
 }
 
+// concerned with drawing and event handling
 var Game = function() {
     var canvas = document.getElementById('canvas');
     var canvasCtx = null;
     var buf = null;
     var bufCtx = null;
     var board = Board();
+    var radius = 20;
+    var gap = 26;
+    var skew = Math.sqrt(3) /2;
 
     //check whether browser supports getting canvas context
     if (canvas && canvas.getContext) {
@@ -255,10 +259,6 @@ var Game = function() {
         context.fillStyle = fillStyle;
         context.fill();
     }
-
-    var radius = 20;
-    var gap = 26;
-    var skew = Math.sqrt(3) /2;
 
     function getCenter(x, y) {
         return {
@@ -295,10 +295,7 @@ var Game = function() {
         board.forEach(function(x,y,state) {
             var center = getCenter(x,y);
             drawCircle(bufCtx, center.x, center.y, radius, '#fff', 20,'#000');
-        });
-        board.forEach(function(x,y,state) {
             if (state != STATE_EMPTY) {
-                var center = getCenter(x,y);
                 drawCellAt(center.x, center.y, state);
             }
         });
