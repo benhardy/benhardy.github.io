@@ -8,28 +8,44 @@ var NORTHEAST = 4;
 var SOUTHWEST = 5;
 var SOUTHEAST = 6;
 
+var GRID_SIZE = 7;
+var HALFWAY = Math.floor(GRID_SIZE/2);
+
 var Board = function() {
-    var elements = new Array();
-    var spare = new Array();
-    for (var row=0; row<7; row++) {
-        elements[row] = new Array();
-        spare[row] = new Array();
-        for (col = 0; col < 7; col ++) {
-            var state = STATE_EMPTY;
-            if ((row + col) < 3) {
-                state = STATE_OUTSIDE;
-            }
-            else if ((row + col) >= 10) {
-                state = STATE_OUTSIDE;
-            }
-            elements[row][col] = state;
-            spare[row][col] = state;
+
+    function make2DArray(size, populatorFunction) {
+        if (!(populatorFunction instanceof Function)) {
+            var value = populatorFunction;
+            populatorFunction = function(row,col) { return value; }
         }
+        var elements = new Array();
+        for (var row=0; row<GRID_SIZE; row++) {
+            elements[row] = new Array();
+            for (col = 0; col < 7; col++) {
+                elements[row][col] = populatorFunction(row, col);
+            }
+        }
+        return elements;
     }
 
+    var elements = make2DArray(GRID_SIZE, function(row, col) {
+        var diagonal = row + col;
+        return (diagonal < HALFWAY || diagonal >= (GRID_SIZE+HALFWAY))
+            ? STATE_OUTSIDE : STATE_EMPTY;
+ 
+    });
+
+    var ACTION_NONE = 0;
+    var ACTION_STAY = 1;
+    var ACTION_DROP = 2;
+    var ACTION_SQUISH = 3;
+    var dropActions = make2DArray(GRID_SIZE, ACTION_STAY);
+    var dropTargets = make2DArray(GRID_SIZE, 0);
+    var dropTops = new Array();
+
     function forEach(todo) {
-        for (var row=0; row<7; row++) {
-            for (var col = 0; col < 7; col++) {
+        for (var row=0; row<GRID_SIZE; row++) {
+            for (var col = 0; col < GRID_SIZE; col++) {
                 var value = elements[row][col];
                 if (!value) {
                     throw new Error("value is 0 at ("+col+","+row+")");
@@ -45,160 +61,171 @@ var Board = function() {
         elements[y][x] = state;
     }
 
-    function gapsBelow(x,y) {
-        var tally = 0;
-        var collapsible = false;
-        var topPos = 6;
-        for (row=6; row>y; row--) {
-            if (elements[row][x] == STATE_EMPTY) {
-                tally = tally + 1;
-            } else {
-                if (topPos>row && elements[row][x]==elements[topPos][x]) 
-                    tally = tally + 1;
-                else
-                    topPos--;
-            }
-        }
-        console.log("tally("+x+","+y+")="+tally);
-        return tally;
+    function get(x,y) {
+        return elements[y][x];
     }
 
-   function getRandomInt(uptil) {
-       return Math.floor(Math.random() * uptil);
-   }
+    function getRandomInt(uptil) {
+        return Math.floor(Math.random() * uptil);
+    }
 
-    function moveCellsDown() {
-       var free = new Array();
-       var taken = new Array();
-       var freetotal = 0;
-       for (col = 0; col < 7; col ++) {
-           var shift = 0;
-           free[col]=0;
-           taken[col]=0;
-           for (row=6; row>=0; row--) {
-               var value = elements[row][col];
-               if (value != STATE_OUTSIDE) {
-                   if (value == STATE_EMPTY) {
-                       shift++;
-                       free[col]++;
-                   } else if (shift>0) {
-                        var toppos = row + shift + 1;
-                        console.log("checking toppos "+toppos+ " on column "+col +" row="+row+" shift="+shift);
-                        if (toppos < 7 && elements[row+shift+1][col] == value) { // if what's underneath is the same, collapse 'em
-                            console.log("collapsing");
-                            shift++;
-                            elements[row+shift][col] = value + value;
-                            free[col]++;
-                        } else {
-                            console.log("not collapsing");
-                            elements[row+shift][col] = elements[row][col];
-                            taken[col]++;
-                        }
+    function createDropPlan()
+    {
+        var moves = 0;
+        for (var col = 0; col < GRID_SIZE; col++) {
+            moves += processColumn(col);
+        }
+        return moves;
+    }
+
+    function bottomActiveRow(col)
+    {
+        return (col > HALFWAY) ? (GRID_SIZE - col+ 2) : (GRID_SIZE - 1);
+    }
+
+    function topActiveRow(col)
+    {
+        return (col < HALFWAY) ? (HALFWAY - col) : 0;
+    }
+
+    function processColumn(col)
+    {
+        var topActive = topActiveRow(col);
+        var bottom = bottomActiveRow(col);
+        var writePos = bottom + 1;
+        var squishingAllowed = false;
+        var previousWriteValue = -10;
+        var moves = 0;
+        for (var row = bottom; row >= topActive; row--) {
+            var current = elements[row][col];
+            var todo = ACTION_NONE;
+            if (current == STATE_EMPTY) {
+                // writePos doesn't change since empty cells collapse
+                todo = ACTION_NONE;
+            } else {
+                if (squishingAllowed && current == previousWriteValue) {
+                    // writePos doesn't change - squishing overwrites previous write
+                    todo = ACTION_SQUISH;
+                    squishingAllowed = false;
+                    moves++;
+                } else {
+                    writePos--; // fillin' up
+                    if (row < writePos) {
+                        todo = ACTION_DROP; // movin' down
+                        moves++;
+                    }
+                    else {
+                        todo = ACTION_STAY; // goin' nowhere
+                    }
+                    squishingAllowed = true;
+                }
+                previousWriteValue = current;
+            }
+            dropActions[col][row] = todo;
+            dropTargets[col][row] = writePos;
+        }
+        dropTops[col] = writePos;
+        return moves;
+    }
+
+    function applyDropPlan()
+    {
+        for (var col = 0; col < GRID_SIZE; col++) {
+            var top = topActiveRow(col);
+            for (var row = bottomActiveRow(col); row >= top; row--) {
+                var todo = dropActions[col][row];
+                var target = dropTargets[col][row]
+                switch (todo) {
+                    case ACTION_DROP:
+                        elements[target][col] = elements[row][col];
                         elements[row][col] = STATE_EMPTY;
-                   }                        
-               }
-           }
-           freetotal+=free[col];
-           console.log("free rows in column "+col+" = "+free[col]);
-       }
-       var selection = getRandomInt(freetotal);
-       var col = 0;
-       while(col<7) {
+                        break;
+                    case ACTION_SQUISH:
+                        elements[target][col] = elements[row][col] + 1;
+                        elements[row][col] = STATE_EMPTY;
+                        break;
+                }
+            }
+        }
+    }
+
+    function getDropTarget(col, row) {
+        return dropTargets[col][row];
+    }
+
+    function addRandomCell() {
+        var freetotal = 0;
+        var free = new Array();
+        for (col = 0; col < GRID_SIZE; col++) {
+            free[col] =  dropTops[col] - topActiveRow(col);
+            freetotal += free[col];
+        }
+        if (freetotal <= 0) {
+            // game should end here
+            return;
+        }
+        var selection = getRandomInt(freetotal);
+        var col = 0;
+        while(col<GRID_SIZE) {
            if (selection < free[col])
                 break;
            selection-= free[col++];
-       }
-       var row = getRandomInt(free[col]);
-       if (col<3)
+        }
+        var row = getRandomInt(free[col]);
+        if (col<3)
             row += (3-col);
-       var newvalue = 1 << getRandomInt(3);
-       elements[row][col] = newvalue;
-       console.log("adding new element at ("+row+","+col+")="+newvalue);
+        var newvalue = 1 << getRandomInt(3);
+        elements[row][col] = newvalue;
+        return [col, row];
     }
 
-    function rotateCellsAnticlockwise() {
-        // C
-        var start = elements[6][3];
-        elements[6][3] = elements[6][0];
-        elements[6][0] = elements[3][0];
-        elements[3][0] = elements[0][3];
-        elements[0][3] = elements[0][6];
-        elements[0][6] = elements[3][6];
-        elements[3][6] = start;
-
-        // D
-        start = elements[6][2];
-        elements[6][2] = elements[5][0];
-        elements[5][0] = elements[2][1];
-        elements[2][1] = elements[0][4];
-        elements[0][4] = elements[1][6];
-        elements[1][6] = elements[4][5];
-        elements[4][5] = start;
-
-        // E
-        start = elements[6][1];
-        elements[6][1] = elements[4][0];
-        elements[4][0] = elements[1][2];
-        elements[1][2] = elements[0][5];
-        elements[0][5] = elements[2][6];
-        elements[2][6] = elements[5][4];
-        elements[5][4] = start;
-
-        // B
-        start = elements[5][3];
-        elements[5][3] = elements[5][1];
-        elements[5][1] = elements[3][1];
-        elements[3][1] = elements[1][3];
-        elements[1][3] = elements[1][5];
-        elements[1][5] = elements[3][5];
-        elements[3][5] = start;
-
-        // A
-        start = elements[4][3];
-        elements[4][3] = elements[4][2];
-        elements[4][2] = elements[3][2];
-        elements[3][2] = elements[2][3];
-        elements[2][3] = elements[2][4];
-        elements[2][4] = elements[3][4];
-        elements[3][4] = start;
-
-        // F
-        var start = elements[5][2];
-        elements[5][2] = elements[4][1];
-        elements[4][1] = elements[2][2];
-        elements[2][2] = elements[1][4];
-        elements[1][4] = elements[2][5];
-        elements[2][5] = elements[4][4];
-        elements[4][4] = start;
-        /*
-        for (var col = 0; col < 7; col ++) {
-            for (var row=0; row <7; row++) {
-                var value = elements[row][col];
-                if (value != STATE_OUTSIDE) {
-                    var xr = col -3;
-                    var yr = row -3;
-                    var xprev = -yr;
-                    var yprev = xr + yr;
-                    console.log("("+xprev+","+yprev+") -> ("+xr+","+yr+")");
-                    spare[row][col] = elements[yprev+3][xprev+3];
-                }
-                else {
-                    spare[row][col] = STATE_OUTSIDE;
-                }
+    function rotateClockwise()
+    {
+        for (var radius = 1; radius <= HALFWAY; radius++) {
+            var top = HALFWAY - radius;
+            var bottom = HALFWAY + radius;
+            var left = HALFWAY - radius;
+            var right = HALFWAY + radius;
+            for (var pos = 0; pos < radius; pos++) {
+                var first = elements[bottom][HALFWAY - pos];
+                elements[bottom][HALFWAY - pos] = elements[HALFWAY + pos][right - pos];
+                elements[HALFWAY + pos][right - pos] = elements[top + pos][right];
+                elements[top + pos][right] = elements[top][HALFWAY + pos];
+                elements[top][HALFWAY + pos] = elements[HALFWAY - pos][left + pos];
+                elements[HALFWAY - pos][left + pos] = elements[bottom - pos][left];
+                elements[bottom - pos][left] = first;
             }
         }
-        var temp = spare;
-        elements = spare;
-        spare = temp;
-        */
     }
 
+    function rotateAnticlockwise()
+    {
+        for (var radius = 1; radius <= HALFWAY; radius++) {
+            var top = HALFWAY - radius;
+            var bottom = HALFWAY + radius;
+            var left = HALFWAY - radius;
+            var right = HALFWAY + radius;
+            for (var pos = 0; pos < radius; pos++) {
+                var first = elements[bottom][HALFWAY - pos];
+                elements[bottom][HALFWAY - pos] = elements[bottom - pos][left];
+                elements[bottom - pos][left] = elements[HALFWAY - pos][left + pos];
+                elements[HALFWAY - pos][left + pos] = elements[top][HALFWAY + pos];
+                elements[top][HALFWAY + pos] = elements[top + pos][right];
+                elements[top + pos][right] = elements[HALFWAY + pos][right - pos];
+                elements[HALFWAY + pos][right - pos] = first;
+            }
+        }
+    }
     return {
         "forEach": forEach,
         "set": set,
-        "gapsBelow": gapsBelow,
-        "moveCellsDown": moveCellsDown,
-        "rotateCellsAnticlockwise": rotateCellsAnticlockwise
+        "get": get,
+        "createDropPlan": createDropPlan,
+        "applyDropPlan": applyDropPlan,
+        "rotateCellsClockwise": rotateClockwise,
+        "rotateCellsAnticlockwise": rotateAnticlockwise,
+        "addRandomCell": addRandomCell,
+        "getDropTarget": getDropTarget
     }; 
 }
 
@@ -257,6 +284,13 @@ var Game = function() {
         };
     }
 
+    function colorOfState(state) {
+        var red = (state) & 15;
+        var green = (state*5) & 15;
+        var blue = (state*7) & 15;
+        return "#" + red.toString(16) + green.toString(16) + blue.toString(16);
+    }
+
     function drawBoard() {
         var radius = 20;
         bufCtx.fillStyle = '#fff';
@@ -268,14 +302,13 @@ var Game = function() {
         board.forEach(function(x,y,state) {
             if (state != STATE_EMPTY) {
                 var center = getCenter(x,y);
-                var color = "#" + (15*256 + state * 2).toString(16);
-                drawCircle(bufCtx, center.x, center.y, radius -2, color);
+                drawCircle(bufCtx, center.x, center.y, radius -2, colorOfState(state));
             }
         });
     }
 
     function drawBoardMovingDown(animationProgress = 0) {
-        console.log("drawboardmoving down "+animationProgress);
+        //console.log("drawboardmoving down "+animationProgress);
         bufCtx.fillStyle = '#fff';
         bufCtx.fillRect(0,0, buf.width, buf.height);
         board.forEach(function(x,y,state) {
@@ -285,18 +318,18 @@ var Game = function() {
         board.forEach(function(x,y,state) {
             if (state != STATE_EMPTY) {
                 var center = getCenter(x,y);
-                var newPos = (y+board.gapsBelow(x,y));
+                var newPos = board.getDropTarget(x,y);
                 var distance = (newPos-y) * gap * 2 * animationProgress;
-                var color = "#" + (15*256 + state * 2).toString(16);
+                var color = colorOfState(state);
                 var ydelta = distance;
                 drawCircle(bufCtx, center.x, center.y + ydelta, radius -2, color);
             }
         });
-        console.log(animationProgress);
+        //console.log(animationProgress);
     }
 
-    function drawBoardRotating(animationProgress = 0) {
-        var angle = -(Math.PI /3) * animationProgress;
+    function drawBoardRotating(direction, animationProgress = 0) {
+        var angle = direction *(Math.PI /3) * animationProgress;
         var sina = Math.sin(angle);
         var cosa = Math.cos(angle);
          
@@ -310,7 +343,7 @@ var Game = function() {
         board.forEach(function(x,y,state) {
             if (state != STATE_EMPTY) {
                 var center = getRotatedCenter(x,y,sina,cosa);
-                var color = "#" + (15*256 + state * 2).toString(16);
+                var color = colorOfState(state);
                 drawCircle(bufCtx, center.x, center.y, radius -2, color);
             }
         });
@@ -333,7 +366,7 @@ var Game = function() {
         // update
         var time = (new Date()).getTime() - startTime;
         var completion = time * 1.0 / duration;
-        console.log("animate completion = "+completion);
+        //console.log("animate completion = "+completion);
         if (completion > 1.0) {
             completion = 1.0;
         }
@@ -352,20 +385,33 @@ var Game = function() {
     function keyEvent(ev) {
         console.log("keycode = "+ev.keyCode);
         if (ev.keyCode == 37) { // left
+            var drawer = function(pos) { drawBoardRotating(1, pos); }
+            animate((new Date()).getTime(), 100, drawer, board.rotateCellsClockwise);
+            ev.returnValue= false;
+            ev.preventDefault = true;
             return false;
         }
         if (ev.keyCode == 39) { // right
-            animate((new Date()).getTime(), 100, drawBoardRotating, board.rotateCellsAnticlockwise);
+            var drawer = function(pos) { drawBoardRotating(-1, pos); }
+            animate((new Date()).getTime(), 100, drawer, board.rotateCellsAnticlockwise);
             ev.returnValue= false;
             ev.preventDefault = true;
             return false;
         }
         if (ev.keyCode == 40) { // down
             console.log("pressed down key");
-            animate((new Date()).getTime(), 100, drawBoardMovingDown, function() {
-                board.moveCellsDown();
-                drawBoard();
-            });
+            var count = board.createDropPlan();
+            console.log("count="+count);
+            if (count > 0) {
+                //console.log("moving down");
+                animate((new Date()).getTime(), 100, drawBoardMovingDown, function() {
+                    board.applyDropPlan();
+                    bits = board.addRandomCell();
+                    drawBoard();
+
+                    canvasCtx.drawImage(buf, 0, 0);
+                });
+            }
             ev.returnValue= false;
             ev.preventDefault = true;
         }
