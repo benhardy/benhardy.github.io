@@ -174,7 +174,7 @@ var Board = function() {
         var row = getRandomInt(free[col]);
         if (col<3)
             row += (3-col);
-        var newvalue = 1 << getRandomInt(3);
+        var newvalue = 1 + getRandomInt(7);
         elements[row][col] = newvalue;
         return [col, row];
     }
@@ -243,6 +243,9 @@ var Game = function() {
         buf.width = canvas.width;
         buf.height = canvas.height;
         bufCtx = buf.getContext('2d');
+        bufCtx.font = "15px Arial, Helvetica, Verdana, sans-serif";
+        bufCtx.textAlign = "center";
+        bufCtx.textBaseline = "middle";
     }
 
     function drawCircle(context, xCenter, yCenter, radius, fillStyle, lineWidth = 0, lineStyle = -1) {
@@ -302,7 +305,7 @@ var Game = function() {
         board.forEach(function(x,y,state) {
             if (state != STATE_EMPTY) {
                 var center = getCenter(x,y);
-                drawCircle(bufCtx, center.x, center.y, radius -2, colorOfState(state));
+                drawCellAt(center.x, center.y, state);
             }
         });
     }
@@ -320,12 +323,19 @@ var Game = function() {
                 var center = getCenter(x,y);
                 var newPos = board.getDropTarget(x,y);
                 var distance = (newPos-y) * gap * 2 * animationProgress;
-                var color = colorOfState(state);
-                var ydelta = distance;
-                drawCircle(bufCtx, center.x, center.y + ydelta, radius -2, color);
+                drawCellAt(center.x, center.y + distance, state);
             }
         });
         //console.log(animationProgress);
+    }
+
+    function drawCellAt(x,y,state) {
+        var color = colorOfState(state);
+        drawCircle(bufCtx, x, y, radius -2, color);
+        bufCtx.fillStyle = '#000';
+        bufCtx.fillText(state, x+1, y+1);
+        bufCtx.fillStyle = '#fff';
+        bufCtx.fillText(state, x-1, y);
     }
 
     function drawBoardRotating(direction, animationProgress = 0) {
@@ -343,8 +353,7 @@ var Game = function() {
         board.forEach(function(x,y,state) {
             if (state != STATE_EMPTY) {
                 var center = getRotatedCenter(x,y,sina,cosa);
-                var color = colorOfState(state);
-                drawCircle(bufCtx, center.x, center.y, radius -2, color);
+                drawCellAt(center.x, center.y, state);
             }
         });
         console.log(animationProgress);
