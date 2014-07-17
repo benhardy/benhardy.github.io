@@ -23,7 +23,7 @@ var Board = function() {
     for (col=0; col <GRID_SIZE; col++) {
         dropTops[col]=bottomActiveRow(col);
     }
-
+    var score = 0;
 
     function make2DArray(size, populatorFunction) {
         if (!(populatorFunction instanceof Function)) {
@@ -124,8 +124,17 @@ var Board = function() {
         return moves;
     }
 
+    function digit(amount) {
+        return (amount==0) ? 1 : (amount==1) ? 2 : 5;
+    }
+
+    function pointsForState(state) {
+        return digit((state-1)%3) * Math.floor(Math.pow(10,(state-1)/3));
+    }
+
     function applyDropPlan()
     {
+        var score_delta = 0;
         for (var col = 0; col < GRID_SIZE; col++) {
             var top = topActiveRow(col);
             for (var row = bottomActiveRow(col); row >= top; row--) {
@@ -138,11 +147,14 @@ var Board = function() {
                         break;
                     case ACTION_SQUISH:
                         elements[target][col] = elements[row][col] + 1;
+                        score_delta += pointsForState(elements[row][col]);
                         elements[row][col] = STATE_EMPTY;
                         break;
                 }
             }
         }
+        score += score_delta;
+        return score;
     }
 
     function getDropTarget(col, row) {
@@ -400,7 +412,8 @@ var Game = function() {
             if (count > 0) {
                 //console.log("moving down");
                 animate((new Date()).getTime(), 100, drawBoardMovingDown, function() {
-                    board.applyDropPlan();
+                    var newScore = board.applyDropPlan();
+                    document.getElementById('score').textContent = newScore;
                     bits = board.addRandomCell();
                     drawBoard();
 
