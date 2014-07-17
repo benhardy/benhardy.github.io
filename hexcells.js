@@ -17,7 +17,7 @@ var Board = function() {
         var diagonal = row + col;
         return (diagonal < HALFWAY || diagonal >= (GRID_SIZE+HALFWAY))
             ? STATE_OUTSIDE : STATE_EMPTY;
- 
+
     });
 
     for (col=0; col <GRID_SIZE; col++) {
@@ -232,7 +232,7 @@ var Board = function() {
         "rotateCellsAnticlockwise": rotateAnticlockwise,
         "addRandomCell": addRandomCell,
         "getDropTarget": getDropTarget
-    }; 
+    };
 }
 
 // concerned with drawing and event handling
@@ -258,8 +258,12 @@ var Game = function() {
         bufCtx.textBaseline = "middle";
     }
 
-    function drawCircle(context, xCenter, yCenter, radius, fillStyle, lineWidth = 0, lineStyle = -1) {
+    function drawCircle(context, xCenter, yCenter, radius, fillStyle, lineWidth, lineStyle) {
     //    console.log("drawCircle(...,"+xCenter+","+yCenter+","+radius+","+fillStyle+","+lineWidth+","+lineStyle);
+
+        var lineWidth = lineWidth || 0;
+        var lineStyle = lineStyle || -1;
+
         context.beginPath();
         context.arc(xCenter, yCenter, radius, Math.PI * 2, false);
         bufCtx.closePath();
@@ -313,8 +317,9 @@ var Game = function() {
         });
     }
 
-    function drawBoardMovingDown(animationProgress = 0) {
+    function drawBoardMovingDown(animationProgress) {
         //console.log("drawboardmoving down "+animationProgress);
+        var animationProgress = animationProgress || 0;
         bufCtx.fillStyle = '#fff';
         bufCtx.fillRect(0,0, buf.width, buf.height);
         board.forEach(function(x,y,state) {
@@ -341,11 +346,12 @@ var Game = function() {
         bufCtx.fillText(state, x-1, y);
     }
 
-    function drawBoardRotating(direction, animationProgress = 0) {
+    function drawBoardRotating(direction, animationProgress) {
+        var animationProgress = animationProgress || 0;
         var angle = direction *(Math.PI /3) * animationProgress;
         var sina = Math.sin(angle);
         var cosa = Math.cos(angle);
-         
+
         //console.log("drawboardmoving down "+animationProgress);
         bufCtx.fillStyle = '#fff';
         bufCtx.fillRect(0,0, buf.width, buf.height);
@@ -433,11 +439,11 @@ var Game = function() {
 }();
 
 window.requestAnimFrame = (function(callback) {
-    return  window.requestAnimationFrame 
-        || window.webkitRequestAnimationFrame 
-        || window.mozRequestAnimationFrame 
-        || window.oRequestAnimationFrame 
-        || window.msRequestAnimationFrame 
+    return  window.requestAnimationFrame
+        || window.webkitRequestAnimationFrame
+        || window.mozRequestAnimationFrame
+        || window.oRequestAnimationFrame
+        || window.msRequestAnimationFrame
         || function(callback) {
           window.setTimeout(callback, 1000 / 100);
         };
