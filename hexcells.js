@@ -36,7 +36,7 @@ var Board = function() {
     var dropTargets = make2DArray(GRID_SIZE, 0);
     var dropTops = new Array();
     for (col=0; col <GRID_SIZE; col++) {
-        dropTops[col]=bottomActiveRow(col)+1;
+        dropTops[col]=bottomActiveRow(col);
     }
 
     function forEach(todo) {

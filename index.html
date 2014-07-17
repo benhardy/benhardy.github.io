@@ -1,11 +1,22 @@
 <html>
 <head>
-<title>Hexcells</title>
+    <title>Hexcells</title>
+    <link rel="stylesheet" type="text/css" href="style.css"/>
 </head>
 <body>
-<canvas id="canvas" width="600" height="600">
+    <header>
+    <h1>hexcells</h1>
+    <p id="scorepara">Score: <span id="score">0 <span></p>
+    </header>
+<canvas id="canvas" width="400" height="400" id="board">
 Canvas not supported.
 </canvas>
+<footer>
+<h2>How to play</h2>
+<p>Use arrow keys to move. Left and right rotate the cells, down squishes them.</p>
+</footer>
+
+
 <script type="text/javascript" src="hexcells.js"></script>
 </body>
 </html>

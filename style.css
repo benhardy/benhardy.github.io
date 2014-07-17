@@ -1,0 +1,38 @@
+body {
+    margin:0px;
+    padding:0px;
+    border:0px;
+    background: white;
+    color: black;
+    font: 8px Verdana, Arial, sans-serif;
+}
+p#scorepara {
+    position: absolute;
+    left: 200;
+    top: 5;
+    font-size: 24px;
+    margin: 0px;
+    padding: 0px;
+}
+header {
+    top: 0px;
+    height: 30px;
+    left: 0px;
+    border: 0px;
+    margin: 0px;
+    padding: 3px;
+    padding-left: 20px;
+    background: #cca;
+    text-align: left;
+}
+h1,h2,h3,h4,h5,h6 { margin: 0px };
+header h1 {
+    padding-top: 5px;
+}
+#board {
+}
+footer {
+    color: #888;
+    font: 8px Verdana, Arial, sans-serif;
+    margin:10px;
+}
