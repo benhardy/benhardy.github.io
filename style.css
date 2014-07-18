@@ -37,14 +37,33 @@ footer {
     margin:10px;
 }
 div#game_over {
-    background: rgba(1,1,1,0.25);
-    width: 80%;
-    margin-left: 100px;
-    margin-right: 100px;
+    background: rgba(255,255,192,0.75);
+    padding-top: 50;
+    width: 350px;
     height: 300px;
     position: absolute;
-    top: 100px;
-    left: 0px;
-    z-index: -1;
+    top: 60px;
+    left: 20px;
+    z-index: 1;
     text-align:center;
+    font-size: 24px;
+    border-radius:30px;
 }
+div#game_over a {
+    text-decoration: none;
+    color: black;
+    background: #cc0;
+    border: 3px solid #330;
+    border-radius: 10px;
+    padding:10px;
+}
+div.visible {
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 0.5s linear;
+}
+div.invisible {
+    visibility: hidden;
+    opacity: 0;
+}
+

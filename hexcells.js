@@ -20,9 +20,6 @@ var Board = function() {
 
     });
 
-    for (col=0; col <GRID_SIZE; col++) {
-        dropTops[col]=bottomActiveRow(col);
-    }
     var score = 0;
 
     function make2DArray(size, populatorFunction) {
@@ -124,6 +121,37 @@ var Board = function() {
         return moves;
     }
 
+    function isBoardFull() {
+        for (var col=0; col<GRID_SIZE; col++) {
+            if (dropTops[col] > topActiveRow(col)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /* game is over when board has no empty cells and no adjacent similar cells */
+    function isGameOver() {
+        for (var col=1; col<GRID_SIZE; col++) {
+            for (var row=topActiveRow(col)+1; row<=bottomActiveRow(col); row++) {
+                var current = elements[row][col];
+                var left = elements[row][col-1];
+                if (left == STATE_OUTSIDE)
+                    continue;
+                if (left == current || left == STATE_EMPTY)
+                    return false;
+                var above = elements[row-1][col];
+                if (above == STATE_OUTSIDE)
+                    continue;
+                if (above == current || above == STATE_EMPTY)
+                    return false;
+                if (current == STATE_EMPTY)
+                    return false;
+            }
+        }
+        return true;
+    }
+
     function digit(amount) {
         return (amount==0) ? 1 : (amount==1) ? 2 : 5;
     }
@@ -180,7 +208,8 @@ var Board = function() {
            selection-= free[col++];
         }
         var row = getRandomInt(free[col]) + topActiveRow(col);
-        var newvalue = 1 + getRandomInt(GRID_SIZE-2);
+        //var newvalue = 1 + getRandomInt(GRID_SIZE*GRID_SIZE); // testing
+        var newvalue = 1 + getRandomInt(GRID_SIZE/2);
         elements[row][col] = newvalue;
         return [col, row];
     }
@@ -222,8 +251,27 @@ var Board = function() {
             }
         }
     }
+
+    function newGame() {
+        for (col=0; col <GRID_SIZE; col++) {
+            dropTops[col]=bottomActiveRow(col);
+        }
+        forEach(function (col,row,state) {
+            if (state != STATE_OUTSIDE) 
+                elements[row][col]=STATE_EMPTY;
+        });
+        // var howMany = 18;
+        var howMany = GRID_SIZE/2;
+        for (var t=0; t<howMany; t++) {
+            addRandomCell();
+        }
+        score = 0;
+    }
+
     return {
+        "newGame": newGame,
         "forEach": forEach,
+        "isGameOver": isGameOver,
         "set": set,
         "get": get,
         "createDropPlan": createDropPlan,
@@ -369,9 +417,7 @@ var Game = function() {
     }
 
     function demo() {
-        for (var t=0; t<GRID_SIZE/2; t++) {
-            board.addRandomCell();
-        }
+        board.newGame();
         document.onkeyup = keyEvent;
         drawBoard();
         canvasCtx.drawImage(buf, 0, 0);
@@ -430,11 +476,11 @@ var Game = function() {
                     bits = board.addRandomCell();
                     drawBoard();
                     canvasCtx.drawImage(buf, 0, 0);
-                    console.log("bits="+bits);
-                    if (!bits) {
-                        document.getElementById("game_over").style.display = 'block';
+                    if (board.isGameOver()) {
+                        document.getElementById("game_over").className='visible';
                     }
                 });
+            } else {
             }
             ev.returnValue= false;
             ev.preventDefault = true;
@@ -442,9 +488,19 @@ var Game = function() {
         return true;
     }
 
+    function restart() {
+        console.log("restart");
+        document.getElementById("game_over").className='invisible';
+        board.newGame();
+        drawBoard();
+        canvasCtx.drawImage(buf, 0, 0);
+        document.getElementById('score').textContent = 0;
+    }
+
     return {
         "demo": demo,
-        "board": board
+        "board": board,
+        "restart": restart
     };
 }();
 
