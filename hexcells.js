@@ -132,20 +132,17 @@ var Board = function() {
 
     /* game is over when board has no empty cells and no adjacent similar cells */
     function isGameOver() {
-        for (var col=1; col<GRID_SIZE; col++) {
-            for (var row=topActiveRow(col)+1; row<=bottomActiveRow(col); row++) {
+        for (var col=0; col<GRID_SIZE; col++) {
+            for (var row=0; row<GRID_SIZE; row++) {
                 var current = elements[row][col];
-                var left = elements[row][col-1];
-                if (left == STATE_OUTSIDE)
-                    continue;
-                if (left == current || left == STATE_EMPTY)
-                    return false;
-                var above = elements[row-1][col];
-                if (above == STATE_OUTSIDE)
-                    continue;
-                if (above == current || above == STATE_EMPTY)
-                    return false;
                 if (current == STATE_EMPTY)
+                    return false;
+                if (current == STATE_OUTSIDE)
+                    continue; 
+                // current won't be empty or outside here
+                if (col > 0 && current == elements[row][col-1])
+                    return false;
+                if (row > 0 && current == elements[row-1][col])
                     return false;
             }
         }
