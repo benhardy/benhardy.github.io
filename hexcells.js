@@ -180,7 +180,7 @@ var Board = function() {
            selection-= free[col++];
         }
         var row = getRandomInt(free[col]) + topActiveRow(col);
-        var newvalue = 1 + getRandomInt(7);
+        var newvalue = 1 + getRandomInt(GRID_SIZE-2);
         elements[row][col] = newvalue;
         return [col, row];
     }
@@ -369,7 +369,7 @@ var Game = function() {
     }
 
     function demo() {
-        for (var t=0; t<GRID_SIZE; t++) {
+        for (var t=0; t<GRID_SIZE/2; t++) {
             board.addRandomCell();
         }
         document.onkeyup = keyEvent;
@@ -377,8 +377,11 @@ var Game = function() {
         canvasCtx.drawImage(buf, 0, 0);
     }
 
+    var animating = false;
+
     function animate(startTime, duration, frameDrawer, onCompletion) {
         // update
+        animating = true;
         var time = (new Date()).getTime() - startTime;
         var completion = time * 1.0 / duration;
         //console.log("animate completion = "+completion);
@@ -393,11 +396,15 @@ var Game = function() {
               animate(startTime, duration, frameDrawer, onCompletion);
             });
         } else {
+            animating = false;
             onCompletion();
         }
     }
 
     function keyEvent(ev) {
+        if (animating) {
+            return false;
+        }
         //console.log("keycode = "+ev.keyCode);
         if (ev.keyCode == 37) { // left
             var drawer = function(pos) { drawBoardRotating(1, pos); }
@@ -422,8 +429,11 @@ var Game = function() {
                     document.getElementById('score').textContent = newScore;
                     bits = board.addRandomCell();
                     drawBoard();
-
                     canvasCtx.drawImage(buf, 0, 0);
+                    console.log("bits="+bits);
+                    if (!bits) {
+                        document.getElementById("game_over").style.display = 'block';
+                    }
                 });
             }
             ev.returnValue= false;
